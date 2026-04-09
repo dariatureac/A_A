@@ -1,6 +1,7 @@
 import sys
 import time
 import random
+import matplotlib.pyplot as plt
 
 sys.setrecursionlimit(200000)
 
@@ -108,7 +109,6 @@ def benchmark(sort_fn, arr):
     copy = arr[:]
     start = time.perf_counter()
     result = sort_fn(copy)
-    # mergesort returns a new list, others sort in-place
     elapsed = time.perf_counter() - start
     return elapsed
 
@@ -119,6 +119,22 @@ def make_array(n, kind):
         return list(range(n))
     else:  # reversed
         return list(range(n, 0, -1))
+
+# ── Plotting ──────────────────────────────────────────────────────────────────
+def plot_results(results, sizes, kinds):
+    for kind in kinds:
+        plt.figure(figsize=(10, 6))
+        for algo, data in results.items():
+            times = [t if t is not None else float('nan') for t in data[kind]]
+            plt.plot(sizes, times, marker='o', label=algo)
+        plt.title(f"Sorting algorithms benchmark ({kind} data)")
+        plt.xlabel("Array size (n)")
+        plt.ylabel("Time (seconds)")
+        plt.xscale('log'); plt.yscale('log')  # лог-шкала для наглядности
+        plt.grid(True, linestyle='--', alpha=0.5)
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
@@ -132,15 +148,13 @@ if __name__ == "__main__":
         "TimSort":   timsort,
     }
 
-    # QuickSort is too slow on sorted/reversed for large n
     QUICKSORT_LIMIT = 10000
+    results = {name: {kind: [] for kind in kinds} for name in algorithms}
 
     for kind in kinds:
         print(f"\n{'='*75}")
         print(f"  Input type: {kind.upper()}")
         print(f"{'='*75}")
-
-        # Header
         header = f"{'Algorithm':<12}" + "".join(f"{n:>10}" for n in sizes)
         print(header)
         print("-" * len(header))
@@ -148,26 +162,15 @@ if __name__ == "__main__":
         for name, fn in algorithms.items():
             row = f"{name:<12}"
             for n in sizes:
-                # Skip QuickSort on sorted/reversed for large n (too slow / stack overflow)
                 if name == "QuickSort" and kind in ("sorted", "reversed") and n > QUICKSORT_LIMIT:
                     row += f"{'—':>10}"
+                    results[name][kind].append(None)
                     continue
                 arr = make_array(n, kind)
                 t = benchmark(fn, arr)
                 row += f"{t:>10.5f}"
+                results[name][kind].append(t)
             print(row)
 
-    print("  SUMMARY: Average time at n=10,000 (seconds)")
-    print(f"{'Algorithm':<12} {'Random':>12} {'Sorted':>12} {'Reversed':>12}")
-    print("-" * 52)
-    for name, fn in algorithms.items():
-        row = f"{name:<12}"
-        for kind in kinds:
-            n = 10000
-            if name == "QuickSort" and kind in ("sorted", "reversed"):
-                row += f"{'—':>12}"
-            else:
-                arr = make_array(n, kind)
-                t = benchmark(fn, arr)
-                row += f"{t:>12.5f}"
-        print(row)
+    # Рисуем графики
+    plot_results(results, sizes, kinds)
